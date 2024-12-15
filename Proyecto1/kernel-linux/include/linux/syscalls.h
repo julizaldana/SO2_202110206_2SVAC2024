@@ -965,7 +965,13 @@ asmlinkage long sys_lsm_set_self_attr(unsigned int attr, struct lsm_ctx *ctx,
 				      size_t size, __u32 flags);
 asmlinkage long sys_lsm_list_modules(u64 *ids, size_t *size, u32 flags);
 
+// SYSCALLS Proyecto 1 
+
 asmlinkage long sys_julioz_capture_memory_snapshot(struct mem_snapshot __user *user_snapshot);
+
+asmlinkage long sys_julioz_track_syscall_usage(struct syscall_usage __user *syscall_usage);
+
+asmlinkage long sys_julioz_get_io_throttle(struct io_stats __user *io_stats);
 
 
 /*

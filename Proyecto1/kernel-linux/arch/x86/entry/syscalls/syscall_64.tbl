@@ -430,6 +430,5 @@
 # not special and are not to be used for x32-specific syscalls.
 
 551	common julioz_capture_memory_snapshot sys_julioz_capture_memory_snapshot
-
-# 552 common julioz_track_syscall_usage sys_julioz_track_syscall_usage
-
+552 common julioz_track_syscall_usage sys_julioz_track_syscall_usage
+553 common julioz_get_io_throttle sys_julioz_get_io_throttle

@@ -74,6 +74,7 @@
 #include <linux/uaccess.h>
 #include <asm/io.h>
 #include <asm/unistd.h>
+#include <linux/ktime.h>
 
 #include "uid16.h"
 
@@ -2860,6 +2861,8 @@ SYSCALL_DEFINE1(sysinfo, struct sysinfo __user *, info)
 	return 0;
 }
 
+// SYSCALLS USAC 
+
 // GET MEMORY SNAPSHOT
 
 struct mem_snapshot {
@@ -2901,6 +2904,65 @@ SYSCALL_DEFINE1(julioz_capture_memory_snapshot, struct mem_snapshot __user *, us
     return 0; // Éxito
 }
 
+/*
+// TRACK_SYSCALL_USAGE
+
+// Guardar conteos, ultima vez, que se guarda la función. 
+
+struct syscall_usage {
+	unsigned long count;
+	struct timespec64 time_last_used;
+}
+
+//Declarar variable de tipo puntero
+
+#define MAX_SYS_CALLS 1024
+static struct syscall_usage *syscall_counters;
+
+static int init_syscall_counters(void) {
+	syscall_counters = kzalloc(sizeof(struct syscall_usage)*MAX_SYS_CALLS, GFP_KERNEL);
+
+	return syscall_counters ? 0 : -ENOMEM;
+
+}
+
+//Funcion necesaria para que cada syscall llame al contador.
+
+void track_syscall(int syscall_id) {
+
+	struct timespec64 now;
+
+	if (!syscall_counters || syscall_id >= MAX_SYS_CALLS) {
+		return;
+	}
+
+	syscall_counters[syscall_id].count++;
+	ktime_get_real_ts64(&now);
+	syscall_counters[syscall_id].time_last_used = now;
+
+}
+
+SYSCALL_DEFINE1(julioz_track_syscall_usage, struct syscall_usage __user*, stats) {
+
+	if (!syscall_counters) {
+		if (init_syscall_counters() != 0) {
+			return -ENOMEM; 
+		}
+	}
+
+	int resultadoCopia = copy_to_user(stats, syscall_counters, sizeof(struct syscall_usage)*MAX_SYS_CALLS);
+
+	if (resultadoCopia) {
+		return -EFAULT;
+	}
+	return 0;
+
+}
+
+*/
+//task, scheduling, fs? - syscall 3 --  Buffer de string.
+
+// GET_IO_THROTTLE
 
 
 

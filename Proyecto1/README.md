@@ -172,11 +172,16 @@ ___
 
 #### Syscall 1: capture_memory_snapshot
 
-
+Esta llamada al sistema se centra en; 
 
 #### Syscall 2: track_syscall_usage
 
+Donde encontrar los syscalls:
 
+1. Read: En el archivo read_write.c en SYSCALL_DEFINE3(read,...) (627)
+2. Write: En el archivo read_write.c en SYSCALL_DEFINE3(write,...) (652)
+3. Open: La syscall open se define en el archivo fs/open.c como ksys_open
+4. Fork: La syscall fork está definida en el archivo kernel/fork.c.
 
 #### Syscall 3: get_io_throttle
 
@@ -194,6 +199,16 @@ ___
 ___ 
 
 ### **<div align="center">Reflexión Personal</div>**
+
+
+
+
+___
+
+### **<div align="center">Errores Comunes</div>**
+
+ld: arch/x86/entry/syscall_64.o:(.rodata+0x1148): undefined reference to `__x64_sys_julioz_get_io_throttle'
+
 
 ___
 
