@@ -172,9 +172,13 @@ ___
 
 #### Syscall 1: capture_memory_snapshot
 
-Esta llamada al sistema se centra en; 
+Esta llamada al sistema se centra en poder capturar en un instante todas las estadísticas más relevantes relacionados con la memoria del sistema. Esto permitirá al usuario poder visualizar con detalle algunas estadísticas que reflejan el estado de la memoria actual en términos de KB.
+
+
 
 #### Syscall 2: track_syscall_usage
+
+Esta llamada al sistema se centra en poder detectar las funciones base read, write, open y fork, que al momento de que se ejecuten en el sistema, se inicializará un contador, que luego será de utilidad para mostrar la cantidad de veces que esas mismas funciones fueron llamadas por el usuario.
 
 Donde encontrar los syscalls:
 
@@ -185,30 +189,55 @@ Donde encontrar los syscalls:
 
 #### Syscall 3: get_io_throttle
 
-
+Esta llamada al sistema se centra en poder obtener las estadísticas base de entrada y salida de los procesos del sistema. Se utiliza como base el struct task, para desglosar y trabajar con sus estadísticas.
 
 
 ___
 
 ### **<div align="center">Módulos de Kernel (Pruebas realizadas)</div>**
 
+Los modulos de kernel son programas que son utiles para poder extender el kernel. Para el proyecto han sido de gran utilidad para poder extender las funcionalidades y mandar a llamar a las syscalls creadas en el espacio del kernel, para luego poder visualizar las estadísticas dentro del espacio del usuario, donde se podrá visualizar dentro de la carpeta /proc.
 
+**Comandos a utilizar**
 
-
+Para la generación de archivos y compilación del archivo C.
+```bash
+make
+```
+Se instala/carga el módulo
+```bash
+sudo insmod mem_and_cpu_info_202110206.ko
+```
+Ver log de kernel, con mensaje de que se cargó el módulo
+```bash
+sudo dmesg | tail -n 5
+```
+Verificar si está activo el módulo
+```bash
+lsmod | grep mem_and_cpu_info_202110206
+```
+Ver archivo creado en /proc, y verificar su información.
+```bash
+cat /proc/mem_and_cpu_info_202110206
+```
 
 ___ 
 
 ### **<div align="center">Reflexión Personal</div>**
 
-
-
+En general el proyecto es muy interesante, ya que se puede entrar muy a fondo en lo que es un sistema operativo, en este caso Linux, y visualizar en realidad como la mayoría  de funciones son definidas dentro del espacio de kernel, y como se realiza esa conexión con el espacio de usuario para que pueda utilizar esas funciones y el sistema sea funcional.
 
 ___
 
 ### **<div align="center">Errores Comunes</div>**
 
-ld: arch/x86/entry/syscall_64.o:(.rodata+0x1148): undefined reference to `__x64_sys_julioz_get_io_throttle'
+Se han obtenido algunos errores comunes como: 
 
+```bash
+ld: arch/x86/entry/syscall_64.o:(.rodata+0x1148): undefined reference to `__x64_sys_julioz_get_io_throttle'
+```
+
+La mayoría de problemas persistieron durante la recompilación del kernel, al momento de definir las llamadas. Y la mayoría de veces fue por problemas de que faltó importar los headers de las llamadas, digamos los archivos .h. No se indicaron bien en los archivos de implementación, o bien faltó colocar que se incluyeran dentro de los Makefiles, que se encuentran en las carpetas de kernel y kernel/usac. Entonces hizo falta insertar esas definiciones para poder compilarlos sin ningun problema.
 
 ___
 
