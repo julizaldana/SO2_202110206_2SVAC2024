@@ -1,0 +1,1 @@
+savedcmd_/home/julioz/Escritorio/Modules/extra/Module.symvers :=  scripts/mod/modpost -M -m -a      -o /home/julioz/Escritorio/Modules/extra/Module.symvers -T /home/julioz/Escritorio/Modules/extra/modules.order -i Module.symvers -e 

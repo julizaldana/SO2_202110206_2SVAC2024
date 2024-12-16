@@ -3040,6 +3040,9 @@ SYSCALL_DEFINE5(clone, unsigned long, clone_flags, unsigned long, newsp,
 		 unsigned long, tls)
 #endif
 {
+    // Llamar a track_syscall aquí para registrar la syscall clone
+    track_syscall(__NR_clone);
+
 	struct kernel_clone_args args = {
 		.flags		= (lower_32_bits(clone_flags) & ~CSIGNAL),
 		.pidfd		= parent_tidptr,

@@ -160,7 +160,7 @@ ___
 
 ### **<div align="center">Carpeta Compartida</div>**
 
-Se han utilizado las carpetas compartidas en Virtual Box, para poder tener un manejo del codigo y poder mostrar los cambios.
+Se han utilizado las carpetas compartidas en Virtual Box, para poder tener un manejo del codigo y poder mostrar los cambios entre VM y maquina host.
 
 ![alt text](./images/folder.png)
 
@@ -174,6 +174,33 @@ ___
 
 Esta llamada al sistema se centra en poder capturar en un instante todas las estadísticas más relevantes relacionados con la memoria del sistema. Esto permitirá al usuario poder visualizar con detalle algunas estadísticas que reflejan el estado de la memoria actual en términos de KB.
 
+Se toma como base el struct de sysinfo, que tiene varios atributos, que son de utilidad para reutilizar en la llamada.
+
+##### Implementación
+
+- Se definió como *SYSCALL 551*, en la tabla de syscalls (syscall_64.tbl)
+- Se realizó la implementación dentro del archivo kernel/sys.c
+    - Se creo un struct: **mem_snapshot** ; para poder recopilar la información de la llamada.
+
+- Se utiliza el desplazamienot de pagina, PAGE_SHIFT es 12, así que PAGE_SHIFT - 10 es igual a 2. Que ayuda a convertir la cantidad de memoria de páginas a unidades más grandes, en este caso se mostrará en KB.
+- Se añadio asmlinkage en include/linux/syscall.h
+
+Se utilizaron algunas constantes que indican los índices de los diferentes tipos de tiempos de CPU dentro de la matriz *cpustat*.
+
+-  NR_ACTIVE_ANON:  "Anónimo" significa que no están asociadas con ningún archivo y típicamente incluyen memoria asignada dinámicamente y pilas.
+
+- NR_ACTIVE_FILE: Páginas de Archivo Activas: Estas son las páginas de memoria que están activamente en uso y están respaldadas por archivos en disco. 
+
+- NR_FILE_PAGES: Páginas de Archivos - son las páginas de memoria que están respaldadas por archivos en el disco. 
+
+- Se hace uso de la función **global_node_page_state**: La función global_node_page_state se utiliza para obtener el estado global de varias estadísticas de páginas en el sistema. 
+
+
+##### Prueba
+
+- Se creó un archivo en C y se compiló, para poder verificar si se puede acceder a la llamada desde el espacio de usuario.
+
+![alt text](./images/sys1.png)
 
 
 #### Syscall 2: track_syscall_usage
@@ -186,12 +213,50 @@ Donde encontrar los syscalls:
 2. Write: En el archivo read_write.c en SYSCALL_DEFINE3(write,...) (652)
 3. Open: La syscall open se define en el archivo fs/open.c como ksys_open
 4. Fork: La syscall fork está definida en el archivo kernel/fork.c.
+5. Clone: La syscall clone está definida en kernel/fork.c.
+
+##### Implementación
+
+- Se definió como *SYSCALL 552*, en la tabla de syscalls (syscall_64.tbl)
+- Se realizó la implementación dentro del archivo kernel/usac/syscall2.h
+    - Se creo un struct: **syscall_usage** ; para poder recopilar la información de la llamada.
+    - Se utilizó la función **track_syscall()** para poder interceptar y poder agregar como un contador, de syscalls. Se añadió esta función independiente en cada syscall que se requería trackear.
+- Se añadio header en usac/include/syscall2.h
+
+##### Prueba
+
+- Se creó un archivo en C y se compiló, para poder verificar si se puede acceder a la llamada desde el espacio de usuario.
+
+![alt text](./images/sys2.png)
+
+
+##### Prueba
+
+- Se creó un archivo en C y se compiló, para poder verificar si se puede acceder a la llamada desde el espacio de usuario.
 
 #### Syscall 3: get_io_throttle
 
-Esta llamada al sistema se centra en poder obtener las estadísticas base de entrada y salida de los procesos del sistema. Se utiliza como base el struct task, para desglosar y trabajar con sus estadísticas.
+Esta llamada al sistema se centra en poder obtener las estadísticas base de entrada y salida de los procesos del sistema. Se utiliza como base el struct task, para desglosar y trabajar con sus estadísticas de entrada y salida.
+
+##### Implementación
+
+- Se definió como *SYSCALL 553*, en la tabla de syscalls (syscall_64.tbl)
+- Se realizó la implementación dentro del archivo kernel/usac/syscall3.h
+    - Se creo un struct: **io_stats** ; para poder recopilar la información de la llamada.
+- Se añadio header en usac/include/syscall3.h
 
 
+##### Prueba
+
+- Se creó un archivo en C y se compiló, para poder verificar si se puede acceder a la llamada desde el espacio de usuario.
+
+![alt text](./images/sys3.png)
+
+*NOTA: Se puede utilizar el siguiente comando, para verificar todas las llamadas creadas después de la compilación del kernel (con script compile_and_install.sh)*
+
+```bash
+cat /proc/kallsyms | grep sys_julioz_
+```
 ___
 
 ### **<div align="center">Módulos de Kernel (Pruebas realizadas)</div>**
@@ -221,15 +286,39 @@ Ver archivo creado en /proc, y verificar su información.
 cat /proc/mem_and_cpu_info_202110206
 ```
 
+
+1. **Modulo Extra:**
+
+Se desarrolló un pequeño modulo de kernel, para poder obtener las estadísticas de memoria del sistema, al igual que un calculo para presentar el porcentaje de uso de CPU, utilizando los jiffies. 
+
+Los jiffies son un término en el contexto del kernel de Linux que se refiere a una unidad de tiempo. 
+
+Se utiliza también la estructura **kcpustat**, que contiene estadísticas de tiempo de CPU.
+
+![alt text](./images/module.png)
 ___ 
 
-### **<div align="center">Reflexión Personal</div>**
+## **<div align="center">Habilidades Blandas</div>**
 
-En general el proyecto es muy interesante, ya que se puede entrar muy a fondo en lo que es un sistema operativo, en este caso Linux, y visualizar en realidad como la mayoría  de funciones son definidas dentro del espacio de kernel, y como se realiza esa conexión con el espacio de usuario para que pueda utilizar esas funciones y el sistema sea funcional.
+Se ha realizado una pequeña planificación de acuerdo el tiempo del proyecto, y se han añadido algunas notas sobre la experiencia al momento de desarrollar el proyecto.
 
-___
+### **<div align="center">Autogestión del Tiempo</div>**
 
-### **<div align="center">Errores Comunes</div>**
+| Fecha | Actividad  |
+| - | - |
+| 5-6 de diciembre | Primera Compilacion Kernel |
+| 11 de diciembre | Configuracion Basica de Kernel |
+| 12 de diciembre | Creación de 1er syscall y prueba |
+| 13 de diciembre | Creación de 2da syscall |
+| 14 de diciembre | Prueba de 2da syscall, modulo extra y creación 3era syscall |
+
+### **<div align="center">Responsabilidad y Compromiso</div>**
+
+Se ha tomando en cuenta que manejar el kernel de un sistema operativo es una tarea bastante minuciosa, y requiere mucho tiempo y cuidado, para poder investigar sobre el funcionamiento adecuado, para que al momento de configurar o editar archivos del kernel, no existan problemas posteriores. 
+
+Es por eso que se considera muy importante, ir almacenando las versiones anteriores de los archivos editados, por si alguna problemática existe, al momento de recompilar o iniciar el sistema.
+
+### **<div align="center">Errores Comunes y Soluciones</div>**
 
 Se han obtenido algunos errores comunes como: 
 
@@ -239,6 +328,14 @@ ld: arch/x86/entry/syscall_64.o:(.rodata+0x1148): undefined reference to `__x64_
 
 La mayoría de problemas persistieron durante la recompilación del kernel, al momento de definir las llamadas. Y la mayoría de veces fue por problemas de que faltó importar los headers de las llamadas, digamos los archivos .h. No se indicaron bien en los archivos de implementación, o bien faltó colocar que se incluyeran dentro de los Makefiles, que se encuentran en las carpetas de kernel y kernel/usac. Entonces hizo falta insertar esas definiciones para poder compilarlos sin ningun problema.
 
+
+### **<div align="center">Reflexión Personal</div>**
+
+En general el proyecto es muy interesante, ya que se puede entrar muy a fondo en lo que es un sistema operativo, en este caso Linux, y visualizar en realidad como la mayoría  de funciones son definidas dentro del espacio de kernel, y como se realiza esa conexión con el espacio de usuario para que pueda utilizar esas funciones y llamadas al sistema creadas desde el espacio de kernel y así los funcionamientos en el sistema sean funcionales.
+
+El tiempo es un factor importante y aprovecharlo es de vital importancia, para poder llegar a investigar, implementar funcionalidades, y realizar pruebas en el sistema operativo.
+
+
 ___
 
 ### **<div align="center">E-grafía</div>**
@@ -246,3 +343,6 @@ ___
 
 * https://elixir.bootlin.com/linux/v6.8/source/kernel/sys.c
 * https://elixir.bootlin.com/linux/v6.8/source/include/linux/vmstat.h#L200
+* https://www.geeksforgeeks.org/input-output-system-calls-c-create-open-close-read-write/
+* https://www.geeksforgeeks.org/fork-system-call/
+* https://elixir.bootlin.com/linux/v6.8/source/include/linux/kernel_stat.h#L53

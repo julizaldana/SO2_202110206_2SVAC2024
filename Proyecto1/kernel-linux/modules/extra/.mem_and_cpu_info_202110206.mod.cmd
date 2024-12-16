@@ -1,0 +1,1 @@
+savedcmd_/home/julioz/Escritorio/Modules/extra/mem_and_cpu_info_202110206.mod := printf '%s\n'   mem_and_cpu_info_202110206.o | awk '!x[$$0]++ { print("/home/julioz/Escritorio/Modules/extra/"$$0) }' > /home/julioz/Escritorio/Modules/extra/mem_and_cpu_info_202110206.mod
