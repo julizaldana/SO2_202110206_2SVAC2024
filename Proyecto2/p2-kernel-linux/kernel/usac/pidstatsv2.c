@@ -2,7 +2,6 @@
 #include <linux/syscalls.h>
 #include <linux/sched.h>
 #include <linux/mm.h>
-#include <linux/oom.h>
 #include <linux/uaccess.h> // Para copy_to_user
 
 struct mem_usage_stats {
@@ -38,14 +37,18 @@ SYSCALL_DEFINE3(julioz_get_memory_usage_stats, int, pid, struct mem_usage_stats 
                 stats.committed_percent = (stats.vmsize > 0) 
                                            ? (stats.vmrss * 100) / stats.vmsize 
                                            : 0;
+
+                // Calcula oom_score
+                stats.oom_score = (stats.vmrss * 1000) / totalram_pages;
+                if (task->signal) {
+                    stats.oom_score += task->signal->oom_score_adj;
+                }
             } else {
                 stats.vmsize = 0;
                 stats.vmrss = 0;
                 stats.committed_percent = 0;
+                stats.oom_score = 0;
             }
-            
-            // Usa totalram_pages como base para oom_score
-            stats.oom_score = oom_badness(task, totalram_pages);
 
             // Copiar la estructura al espacio de usuario
             if (copy_to_user(&buffer[count], &stats, sizeof(struct mem_usage_stats))) {
@@ -69,14 +72,18 @@ SYSCALL_DEFINE3(julioz_get_memory_usage_stats, int, pid, struct mem_usage_stats 
             stats.committed_percent = (stats.vmsize > 0) 
                                        ? (stats.vmrss * 100) / stats.vmsize 
                                        : 0;
+
+            // Calcula oom_score
+            stats.oom_score = (stats.vmrss * 1000) / totalram_pages;
+            if (task->signal) {
+                stats.oom_score += task->signal->oom_score_adj;
+            }
         } else {
             stats.vmsize = 0;
             stats.vmrss = 0;
             stats.committed_percent = 0;
+            stats.oom_score = 0;
         }
-
-        // Usar totalram_pages como base para oom_score
-        stats.oom_score = oom_badness(task, totalram_pages);
 
         // Copiar la estructura al espacio de usuario
         if (copy_to_user(buffer, &stats, sizeof(struct mem_usage_stats))) {

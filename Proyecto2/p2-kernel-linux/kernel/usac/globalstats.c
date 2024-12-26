@@ -11,7 +11,7 @@ struct global_mem_stats {
 
 SYSCALL_DEFINE1(julioz_get_global_memory_usage_stats, struct global_mem_stats __user *, user_stats) {
     struct task_struct *task;
-    struct global_mem_stats stats = {0, 0}; // Inicializar a 0
+    struct global_mem_stats stats = {0, 0}; // Inicializa a 0
 
     // Iterar sobre todos los procesos
     for_each_process(task) {

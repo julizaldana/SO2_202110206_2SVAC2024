@@ -23,14 +23,14 @@ SYSCALL_DEFINE1(julioz_tamalloc, size_t, size)
     //MAP_ANONYMOUS: El contenido del mapeo anonimo de memoria sería inicializado en 0.
     //MAP_NORESERVE: No reserva espacio swap / memoria(fisica). Para evitar buffer overflows.
 
-    // Mapear memoria usando vm_mmap (MAPEO VIRTUAL)
+    // Mapea memoria usando vm_mmap (MAPEO VIRTUAL)
     addr = vm_mmap(NULL, 0, aligned_size, PROT_READ | PROT_WRITE,
                    MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, 0);
 
     if (IS_ERR_VALUE(addr)) {
         printk(KERN_ERR "ERROR AL MAPEAR MEMORIA VIRTUAL CON TAMALLOC");
-        return addr; // Retornar el error directamente
+        return addr; // Retorna el error directamente
     }
 
-    return addr; // Retornar la dirección mapeada
+    return addr; // Retorna la dirección mapeada
 }

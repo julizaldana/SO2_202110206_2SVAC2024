@@ -41,13 +41,14 @@ Tiene que quedar en reserved, pero si inicializado en 0.
 
 * **VmRSS:** Nos brinda la cantidad de memoria que reside en RAM, de la cual esta siendo activamente usada.
 
-**Lazy-zeroing**
+* **oom_score** Es un valor que se asigna a cada proceso que está en ejecución en Linux y que indica la probabilidad de que sea eliminado si el sistema tiene poca memoria
+
+**Lazy-zeroing:**
 
 Técnica utilizada por los gestores de memoria para mejorar la eficiencia en la asignación de memoria. En lugar de inicializar (rellenar con ceros) toda la memoria asignada de inmediato, lazy-zeroing pospone esta inicialización hasta que la memoria realmente se utilice.
 
-OverCommit-Dar mas memoria.
-OOM-killer. 
-
+#### Comparación alojadores de memoria:
+ 
 | | malloc | calloc | tamalloc |
 | - | - | - | - |
 | init en 0 |  ❌ | ✔  | ✔ |
@@ -61,6 +62,8 @@ ___
 
 En general cualquier proceso utiliza malloc, para poder asignar memoria. Pero una de las desventajas de malloc, es que no se inicializa el bloque de memoria asignado en 0, es por ello que se ha realizado la creación de un nuevo alojador llamado *tamalloc*, que cumple con casi el mismo funcionamiento de malloc.
 
+#### Objetivos
+
 El alojador de memoria Tamalloc tendrá como objetivo:
 
 1. Toma como argumento la cantidad de memoria a alojar
@@ -68,14 +71,36 @@ El alojador de memoria Tamalloc tendrá como objetivo:
 3. Inicializa en el espacio 0.
 4. No marcar la memoria como utilizada (relacionado al OOM)
 
+#### Funcionamiento
 
-Mapping de memoria virtual:
+1. **Entrada:** Como argumento se ingresa el tamaño de memoria a reservar. En donde el usuario especifica el tamaño en bytes a reservar (size).
 
-**Banderas a utilizar:**
+Si el tamaño es 0, se devuelve el error -EINVAL indicando una entrada inválida.
 
-- MAP_NORESERVE
-- MAP_PRIVATE
-- MAP_ANONYMOUS
+2. **Alineación del tamaño:** El tamaño solicitado se alinea al tamaño de página más cercano utilizando **PAGE_ALIGN(size)**.
+
+Esto asegura que la memoria solicitada esté alineada con las páginas de memoria del sistema, lo cual es esencial para una correcta gestión de memoria.
+
+3. **Mapping de memoria virtual:** Se utiliza la función interna del kernel **vm_mmap** para mapear un espacio de memoria virtual. 
+
+Los parámetros clave son:
+
+- NULL: Indica que el sistema puede elegir cualquier dirección virtual disponible.
+- 0: Offset inicial (para mapeos anónimos, no se utiliza).
+- aligned_size: Tamaño alineado a reservar.
+- PROT_READ | PROT_WRITE: Permisos de lectura y escritura en la memoria reservada.
+- MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE: 
+**Banderas a utilizar para mapeo:**
+    - MAP_PRIVATE: La memoria reservada es privada al proceso que la solicita. Si se copia, se usa copy-on-write (COW).
+    - MAP_ANONYMOUS: La memoria no está asociada a un archivo físico y se inicializa automáticamente en 0.
+    - MAP_NORESERVE: No reserva espacio de swap ni memoria física inmediatamente, optimizando recursos.
+
+
+
+
+
+
+
 
 ___
 
@@ -83,36 +108,52 @@ ___
 
 La creación de syscalls ha sido de vital importancia, ya que para el manejo de los funcionamientos en el espacio de usuario, ha sido mucho más fácil implementando dichas llamadas.
 
-1. **tamalloc** (Función para asignación de memoria)
+#### Syscall 1: **tamalloc** (Función para asignación de memoria)
 
 Se ha construido y realizado la implementación de una llamada al sistema exclusivamente para el funcionamienot del alojador de memoria "tamalloc", con el objetivo de poder replicar y combinar los funcionamientos más relevantes de los alojadores de memoria más utilizados como lo son calloc y malloc.
 
 Para la implementación, se requirió tener bien en cuenta todos los requisitos previos a utilizar en la función de Tamalloc. Como sería la inicialización de memoria en 0, al momento de la asignación de memoria. O por otro lado, retornar una dirección de memoria virtual (como puntero).
 
 * Se ha hecho uso de la función **vm_mmap**, para poder realizar la inicialización en 0 de los bloques de memoria.
+* Se definió como *SYSCALL 554*, en la tabla de syscalls (syscall_64.tbl)
+* Se realizó la implementación dentro del archivo kernel/usac/tamalloc.c
 
+##### Uso de Tamalloc en Espacio de Usuario
 
+![alt text](./images/tamallocusage.png)
 
-2. **get_memory_usage_stats** (Consulta de estadísticas de memoria de procesos)
+#### Syscall 2: **get_memory_usage_stats** (Consulta de estadísticas de memoria de procesos)
 
 Se ha construido esta syscall con el objetivo, de poder consultar las estadísticas más relevantes, relacionadas a la asignación de memoria, para poder tener una visualización más cercana sobre el comportamiento y el cambio en las estadísticas al usar el alojador de memoria *tamalloc*. 
+
+* Se definió como *SYSCALL 555*, en la tabla de syscalls (syscall_64.tbl)
+* Se realizó la implementación dentro del archivo kernel/usac/pidstats.c
 
 Para la implementación, se requirió la utilización:
 
 * **task_struct**: struct importante para poder obtener las estadísticas de vm_size y vm_rss. 
 * **for_each_process(task)**: función útil para poder recorrer como un ciclo por los procesos del sistema
 * **find_task_by_vpid(pid)**: función útil para poder encontrar un task o proceso en específico dado por parámetro
-* **oom_badness()**: función utilizada para retornar el puntaje de OOM.
+* **oom_badness()/oom_score_adj**: función utilizada para retornar y ajustar el puntaje de OOM.
 
-3. **get_global_memory_usage_stats** (Consulta de estadísticas de memoria globales)
+#### Syscall 3: **get_global_memory_usage_stats** (Consulta de estadísticas de memoria globales)
 
 Se ha construido esta syscall con el objetivo, de poder consultar y mostrar las estadísticas de memoria reservada y memoria utilizada por el sistema en GENERAL o GLOBAL, contabilizando todos los procesos.
+
+* Se definió como *SYSCALL 556*, en la tabla de syscalls (syscall_64.tbl)
+* Se realizó la implementación dentro del archivo kernel/usac/globalstats.c
 
 Para la implementación, se requirió la utilización:
 
 * **task_struct**: struct importante para poder obtener las estadísticas de vm_size y vm_rss. 
 * Se realizó una suma de las stats respectivas, para poder presentar las estadísticas globales.
 
+
+*NOTA: Se puede utilizar el siguiente comando, para verificar todas las llamadas creadas después de la compilación del kernel (con script compile_and_install.sh)*
+
+```bash
+cat /proc/kallsyms | grep sys_julioz_
+```
 ___
 
 ### **<div align="center"> Pruebas y Estadísticas </div>**
