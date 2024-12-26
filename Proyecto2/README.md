@@ -36,16 +36,14 @@ Tiene que quedar en reserved, pero si inicializado en 0.
 
 ![alt text](./images/tamalloc.png)
 
-* mmap
 
-* new
+* **Vmsize:** Devuelve cuanta memoria ha sido alocada (reservada solicitada) por un proceso.
 
-* delete
+* **VmRSS:** Nos brinda la cantidad de memoria que reside en RAM, de la cual esta siendo activamente usada.
 
-* memset - Ver donde está implementado, y quitarlo lo de commited.
+**Lazy-zeroing**
 
-Cualquier proceso utiliza malloc, para poder asignar memoria.
-Dar mas memoria de la que tiene. 
+Técnica utilizada por los gestores de memoria para mejorar la eficiencia en la asignación de memoria. En lugar de inicializar (rellenar con ceros) toda la memoria asignada de inmediato, lazy-zeroing pospone esta inicialización hasta que la memoria realmente se utilice.
 
 OverCommit-Dar mas memoria.
 OOM-killer. 
@@ -57,105 +55,114 @@ OOM-killer.
 | VmRSS No Inmediato | ✔   | ❌  | ✔ |
 
 
-Vmsize: Devuelve cuanta memoria ha sido alocada (reservada solicitada) por un proceso.
-
-VmRSS: Nos brinda la cantidad de memoria que reside en RAM, de la cual esta siendo activamente usada.
-
-
-Lazy-loading
-Lazy-init
-Lazy-zeroing
-Mapping de memoria virtual:
-- MAP_NORESERVE
-- MAP_PRIVATE
-- MAP_ANONYMOUS
-
-Guiarme de kzalloc, calloc
-
-El alojador de memoria Tamalloc tendrá como objetivo:
-
-1. Toma como argumento la cantidad de memoria a alojar
-2. Devolver un puntero como cualquier otro alojador.
-3. Inicializar en el espacio 0.
-4. No marcar la memoria como utilizada (relacionado al OOM)
-
-Estadísticas de memoria por cada proceso.
-1) Reserved Memory
-2) Commited Memory
-3) OOM Score
-
-Estadísticas de uso de memoria. (Mostrado en MB y en porcentaje de la memoria TOTAL) 
-
-1) Memoria TOTAL que ha sido reservada.
-2) Utilización (Commited / No Reserved)
-
-Total del sistema
-Total reservada
-Total commited
 ___
 
 ### **<div align="center"> Desarrollo de Tamalloc </div>**
 
-Tamalloc devolverá un puntero.
+En general cualquier proceso utiliza malloc, para poder asignar memoria. Pero una de las desventajas de malloc, es que no se inicializa el bloque de memoria asignado en 0, es por ello que se ha realizado la creación de un nuevo alojador llamado *tamalloc*, que cumple con casi el mismo funcionamiento de malloc.
 
-void *ptr tamalloc(size_t size)
+El alojador de memoria Tamalloc tendrá como objetivo:
 
-void * mem_pointer = malloc (size)
+1. Toma como argumento la cantidad de memoria a alojar
+2. Devolver un puntero como cualquier otro alojador. (Dirección Virtual)
+3. Inicializa en el espacio 0.
+4. No marcar la memoria como utilizada (relacionado al OOM)
 
-//si mem_pointer es un nullptr, devolver nullptr)
 
-int res = memset_modificado(0,mem_pointer,size)
+Mapping de memoria virtual:
 
-//si res no es 0, devolver res
+**Banderas a utilizar:**
 
-return mem_pointer
-
-![alt text](image.png)
-
-int memset_modificado(char filler, void* starting_address, size_t size (cantidad de bytes que se van a llenar de 0s))
-
-int res = memset_modificado(filler, mem_pointer, size)
-
-int memset_modificado(char filler, void* starting_adress, size_t size)
-
+- MAP_NORESERVE
+- MAP_PRIVATE
+- MAP_ANONYMOUS
 
 ___
 
 ### **<div align="center"> Creación de Syscalls </div>**
 
-1. **Tamalloc** (Función para asignación de memoria)
+La creación de syscalls ha sido de vital importancia, ya que para el manejo de los funcionamientos en el espacio de usuario, ha sido mucho más fácil implementando dichas llamadas.
+
+1. **tamalloc** (Función para asignación de memoria)
+
+Se ha construido y realizado la implementación de una llamada al sistema exclusivamente para el funcionamienot del alojador de memoria "tamalloc", con el objetivo de poder replicar y combinar los funcionamientos más relevantes de los alojadores de memoria más utilizados como lo son calloc y malloc.
+
+Para la implementación, se requirió tener bien en cuenta todos los requisitos previos a utilizar en la función de Tamalloc. Como sería la inicialización de memoria en 0, al momento de la asignación de memoria. O por otro lado, retornar una dirección de memoria virtual (como puntero).
+
+* Se ha hecho uso de la función **vm_mmap**, para poder realizar la inicialización en 0 de los bloques de memoria.
 
 
 
+2. **get_memory_usage_stats** (Consulta de estadísticas de memoria de procesos)
 
-2. **VM_stats** (Consulta de Estadísticas de Procesos)
+Se ha construido esta syscall con el objetivo, de poder consultar las estadísticas más relevantes, relacionadas a la asignación de memoria, para poder tener una visualización más cercana sobre el comportamiento y el cambio en las estadísticas al usar el alojador de memoria *tamalloc*. 
 
+Para la implementación, se requirió la utilización:
 
+* **task_struct**: struct importante para poder obtener las estadísticas de vm_size y vm_rss. 
+* **for_each_process(task)**: función útil para poder recorrer como un ciclo por los procesos del sistema
+* **find_task_by_vpid(pid)**: función útil para poder encontrar un task o proceso en específico dado por parámetro
+* **oom_badness()**: función utilizada para retornar el puntaje de OOM.
 
+3. **get_global_memory_usage_stats** (Consulta de estadísticas de memoria globales)
 
-3. **Mem_Stats**
+Se ha construido esta syscall con el objetivo, de poder consultar y mostrar las estadísticas de memoria reservada y memoria utilizada por el sistema en GENERAL o GLOBAL, contabilizando todos los procesos.
 
+Para la implementación, se requirió la utilización:
 
-
-
-Suma de MemFree, Bufer y Cached - Reservada o no utilizada
- Total de Memoria - Reservada - Utilizada.
-
+* **task_struct**: struct importante para poder obtener las estadísticas de vm_size y vm_rss. 
+* Se realizó una suma de las stats respectivas, para poder presentar las estadísticas globales.
 
 ___
 
 ### **<div align="center"> Pruebas y Estadísticas </div>**
 
-Se obtiene en una tabla las estadísticas de memoria por cada proceso.
 
-1) Reserved Memory
-2) Commited Memory
+Para probar la asignación de memoria de tamalloc, se puede verificar el archivo de prueba, y al mismo tiempo ejecutar el siguiente comando; que ayudará a visualizar especificamente dos atributos muy importantes al momento de manejar y alocar memoria; que sería el VMRSS y el VMSize.
+
+```bash
+watch -n 0.5 "cat /proc/2903/status | grep -E 'VmRSS|VmSize'"
+```
+
+Por otro lado, para verificar el comportamiento de los procesos manipulados con el alojador *tamalloc*, se han creado dos syscalls para obtener las estadísticas de memoria de procesos.
+
+**julioz_get_memory_usage_stats**
+
+1) Reserved Memory (VM Size) (kb)
+2) Commited Memory (VM RSS) (kb)
 3) OOM Score
+4) Porcentaje Commited Memory 
 
-en cat/proc/num/score
+Ejemplo:
 
-Modulo en C, 
-Lo ideal sería que esté en el Kernel.
+- Obtención de lista de procesos (Presionando PID = 0)
+
+<center>
+<img src=./images/pid0.png width=59%>
+</center>
+
+- Obtención de proceso único (Ej: Presionando PID = 1)
+
+![alt text](./images/pid1.png)
+
+
+**julioz_get_global_memory_usage_stats**
+
+1) Reserved Memory Total Sistema (MB)
+2) Commited Memory Total Sistema (MB)
+
+Ejemplo:
+
+Obtención de estadísticas globales del sistema
+
+![alt text](./images/global.png)
+
+#### **Verificación**
+
+Para verificar que el funcionamiento del alojador *tamalloc* es el correcto; se tienen que cumplir que las estadísticas cumplan con el siguiente comportamiento:
+
+* *VM Size:* Después de inicializarse *tamalloc* sube drásticamente, dependiendo de la cantidad de memoria ingresada como argumento en la función tammalloc. (Por ejemplo que se asigne 10 MB, subirá 10 MB) inicializandose en 0 (ocupando 0s en el espacio de memoria asignado)
+* *VM RSS:* Después de haberse asignado el bloque de memoria, tendrá que ir llenando memoria, de a poco, subiendo la estadística lentamente.
 
 ___ 
 
@@ -168,115 +175,69 @@ Se ha realizado una pequeña planificación de acuerdo el tiempo del proyecto, y
 | Fecha | Actividad  |
 | - | - |
 | 21 de diciembre | Investigación conceptos de Asignación de Memoria|
-| 22 de diciembre | Implementación Tamalloc |
-| 23 de diciembre | Implementación Tamalloc, 1er syscall y prueba |
-| 24 de diciembre | Creación de 2da syscall y 3era syscall |
-| 25 de diciembre | Prueba de 3era syscall y validaciones |
+| 22 de diciembre | Se comienza implementación Tamalloc |
+| 23 de diciembre | Se continúa implementación Tamalloc y prueba |
+| 25 de diciembre | Creación y prueba de 2da syscall y Creación 3era syscall  |
+| 26 de diciembre | Prueba de 3era syscall y validaciones |
 
 ### **<div align="center">Responsabilidad y Compromiso</div>**
 
+Se debe de tomar en cuenta que para la correcta elaboración del proyecto,se necesita un tiempo considerable para investigar sobre los structs y funcionamientos generales de las herramientas a utilizar en el proyecto, al igual para poder ubicar, implementar y realizar pruebas respectivas de las funcionalidades solicitadas.
 
+Se necesita un gran compromiso, para poder implementar, recompilar el kernel constantemente para hacer pruebas, verificar funcionalidades etc.
 
 ### **<div align="center">Errores Comunes y Soluciones</div>**
 
-Se han obtenido algunos errores comunes como: 
+Al compilar el código de la SYSCALL TAMALLOC, me ha salido el siguiente error:
 
 ```bash
+kernel/usac/tamalloc.c: In function ‘__do_sys_julioz_tamalloc’:
+kernel/usac/tamalloc.c:23:12: error: too few arguments to function ‘do_mmap’
+   23 |     addr = do_mmap(NULL, 0, aligned_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, 0);
+      |            ^~~~~~~
+In file included from ./include/linux/ring_buffer.h:5,
+                 from ./include/linux/trace_events.h:6,
+                 from ./include/trace/syscall.h:7,
+                 from ./include/linux/syscalls.h:93,
+                 from kernel/usac/tamalloc.c:2:
+./include/linux/mm.h:3371:22: note: declared here
+ 3371 | extern unsigned long do_mmap(struct file *file, unsigned long addr,
 ```
 
-Causa:
+**Causa:**
 
-Solución:
-
-Tiene que aceptar el PID de un proceso.
-
-SYSCALL_DEFINE1(julioz_get_allocators_statistics, int pid)
-(
-
-Si le pasamos el PID 0 que devuelve el 0
-
-Pero si le pasamos un PID != 0, que devuelve ese solo proceso.
-
-    if (pid == 0){
+La función do_mmap requiere más argumentos de los que se han proporcionado. Sin embargo, después de verificar y realizar pruebas, se llegó a la conclusión que no se debería usar directamente do_mmap en una syscall, porque es una función interna del kernel. 
 
 
-    }
+**Solución:**
 
+Se provee la solución de utilizar en vez de do_mmap, utilizar la función **vm_mmap**, que es una capa de abstracción más sencilla para mapear memoria en syscalls. 
 
-)
-
-tamalloc da un bloque de memoria.
-
-Cuando ejecutamos malloc.
-
-malloc(70kb)
-0x7831 - 
-70kb
-
-VM RSS tiene que ir subiendo de a pocos .
-Vm Size se queda igual
-
-Mejor hacer una syscall.
-Poner el PID.
-
-grep.
-
-Manden.
-TAMALLOC ES PARA ASIGNACIÓN DE MEMORIA.
-
-(int*) ptr = malloc(size)
-memset(0, ptr, size)
-
-//evitar 
-
-Los procesos normales usan malloc.
-
-MemTotal ya está.
-Necesitamos el reservado y el commited.
-
-MAP_NORESERVE, MAP_PRIVATE y MAP_ANONYMOUS.
-
-MEMSET no va a estar en TAMALLOC
-
-MALLOC No inicializa en 0 la memoria.
-
-Cambiar malloc con calloc.
+```c
+unsigned long vm_mmap(struct file *file, unsigned long addr,
+                      unsigned long len, unsigned long prot,
+                      unsigned long flags, unsigned long pgoff);
+```                  
 
 
 
 
-#define SYSCALL_TAMALLOC_ID 555
-#define ALLOC_SIZE
-int main() {
-     
 
 
-     (void*) memory_ptr = syscall(SYSCALL_TAMALLOC_ID, ALLOC_SIZE);
-
-     if (!memory_ptr) {
-        printf("Error! No obtuvimos un puntero valido")
-        //TODO poner p_error()
-     }
-     
-
-     // TODO read("Presione ENTER para empezar la lectura del bloque de memoria")
-}
-void* 
-
-RSS - Bajo (2MB)
-VSS poco mas de 100 MB
-
-Inicializar cada pagina 
-
-for (int i=0; i<ALLOC_SIZE; ++i) {
-    if (i%10 == 0) {
-        printf("Se leyeron 50 bytes, esperando 1 segundo\n");
-    }
-}
 
 ### **<div align="center">Reflexión Personal</div>**
 
+En general el segundo proyecto del laboratorio del curso, es muy interesante y constructivo; ya que se puede experimentar bastante en la temática de asignación de memoria de un sistema operativo, en este caso Linux. En este caso estudiar más a fondo el comportamiento de muchas funciones que alojan memoria como lo son calloc, malloc etc, poder implementar una variante, es de gran utilidad, ya que brinda una gran perspectiva de como funciona la repartición de memoria a los procesos de un sistema operativo. De igual manera, poder utilizar de estadísticas del sistema implementando syscalls para verificar el comportamiento del alojador creado *tamalloc*. 
+
+El tiempo ha sido un factor importante y aprovecharlo es de vital importancia, para poder llegar a investigar, implementar funcionalidades, y realizar pruebas en el sistema operativo.
 
 ___
 
 ### **<div align="center"> E-grafía </div>**
+
+- https://www.geeksforgeeks.org/dynamic-memory-allocation-in-c-using-malloc-calloc-free-and-realloc/
+- https://stackoverflow.com/questions/7582301/virtual-memory-size-on-linux
+- https://learn.redhat.com/t5/RH442-Red-Hat-Performance-Tuning/Linux-virtual-memory-manager/td-p/42926
+- https://neo4j.com/developer/kb/linux-out-of-memory-killer/
+
+

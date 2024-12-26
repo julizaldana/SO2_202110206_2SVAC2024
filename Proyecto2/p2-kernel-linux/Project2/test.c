@@ -13,7 +13,6 @@ struct mem_usage_stats {
     unsigned long vmsize;  // Memoria reservada (VmSize) en KB
     unsigned long vmrss;   // Memoria comprometida (VmRSS) en KB
     int oom_score;         // Puntuación OOM
-    int committed_percent; // Porcentaje de memoria utilizada
 };
 
 int main(int argc, char *argv[]) {
@@ -36,16 +35,18 @@ int main(int argc, char *argv[]) {
         perror("syscall");
     } else {
         printf("\nInformación de procesos:\n");
-        printf("+-------+----------------+----------------+-----------+----------------+\n");
-        printf("|  PID  | Reserved (KB)  | Committed (KB) | OOM Score | Committed % |\n");
-        printf("+-------+----------------+----------------+-----------+----------------+\n");
+        printf("+-------+----------------+----------------+-----------+\n");
+        printf("|  PID  | Reserved (KB)  | Committed (KB) | OOM Score |\n");
+
 
         for (long i = 0; i < result; i++) {
-            printf("| %5d | %14lu | %14lu | %9d | %14d |\n",
-                   buffer[i].pid, buffer[i].vmsize, buffer[i].vmrss, buffer[i].oom_score, buffer[i].committed_percent);
+            printf("+-------+----------------+----------------+-----------+\n");
+            printf("| %5d | %14lu | %14lu | %9d |\n",
+                   buffer[i].pid, buffer[i].vmsize, buffer[i].vmrss, buffer[i].oom_score);
+            printf("+-------+----------------+----------------+-----------+\n");
+
         }
 
-        printf("+-------+----------------+----------------+-----------+----------------+\n");
     }
 
     free(buffer);
