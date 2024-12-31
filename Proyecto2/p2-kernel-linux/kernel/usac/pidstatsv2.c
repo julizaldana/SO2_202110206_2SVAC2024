@@ -2,7 +2,9 @@
 #include <linux/syscalls.h>
 #include <linux/sched.h>
 #include <linux/mm.h>
+#include <linux/oom.h>
 #include <linux/uaccess.h> // Para copy_to_user
+#include <linux/swap.h>
 
 struct mem_usage_stats {
     int pid;                // PID del proceso
@@ -11,6 +13,35 @@ struct mem_usage_stats {
     int oom_score;          // Puntuación OOM
     int committed_percent;  // Porcentaje de memoria utilizada
 };
+
+int calculate_oom_score(struct task_struct *task) {
+    unsigned long rss = 0;
+    unsigned long totalpages = totalram_pages + total_swap_pages;
+    long adj = 0;
+
+    // Obtener memoria residente (VmRSS)
+    if (task->mm) {
+        rss = get_mm_rss(task->mm);
+    }
+
+    // Ajustar por oom_score_adj
+    if (task->signal) {
+        adj = task->signal->oom_score_adj;
+    }
+
+    // Calcular el puntaje OOM
+    int score = (rss * 1000) / totalpages;
+    score += adj;
+
+    // Asegurar límites válidos
+    if (score < 0) {
+        score = 0;
+    } else if (score > 1000) {
+        score = 1000;
+    }
+
+    return score;
+}
 
 SYSCALL_DEFINE3(julioz_get_memory_usage_stats, int, pid, struct mem_usage_stats __user *, buffer, size_t, max_entries) {
     struct task_struct *task;
@@ -37,18 +68,14 @@ SYSCALL_DEFINE3(julioz_get_memory_usage_stats, int, pid, struct mem_usage_stats 
                 stats.committed_percent = (stats.vmsize > 0) 
                                            ? (stats.vmrss * 100) / stats.vmsize 
                                            : 0;
-
-                // Calcula oom_score
-                stats.oom_score = (stats.vmrss * 1000) / totalram_pages;
-                if (task->signal) {
-                    stats.oom_score += task->signal->oom_score_adj;
-                }
             } else {
                 stats.vmsize = 0;
                 stats.vmrss = 0;
                 stats.committed_percent = 0;
-                stats.oom_score = 0;
             }
+            
+            // Calcular oom_score
+            stats.oom_score = calculate_oom_score(task);
 
             // Copiar la estructura al espacio de usuario
             if (copy_to_user(&buffer[count], &stats, sizeof(struct mem_usage_stats))) {
@@ -72,18 +99,14 @@ SYSCALL_DEFINE3(julioz_get_memory_usage_stats, int, pid, struct mem_usage_stats 
             stats.committed_percent = (stats.vmsize > 0) 
                                        ? (stats.vmrss * 100) / stats.vmsize 
                                        : 0;
-
-            // Calcula oom_score
-            stats.oom_score = (stats.vmrss * 1000) / totalram_pages;
-            if (task->signal) {
-                stats.oom_score += task->signal->oom_score_adj;
-            }
         } else {
             stats.vmsize = 0;
             stats.vmrss = 0;
             stats.committed_percent = 0;
-            stats.oom_score = 0;
         }
+
+        // Calcular oom_score
+        stats.oom_score = calculate_oom_score(task);
 
         // Copiar la estructura al espacio de usuario
         if (copy_to_user(buffer, &stats, sizeof(struct mem_usage_stats))) {

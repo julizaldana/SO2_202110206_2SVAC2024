@@ -45,7 +45,7 @@ SYSCALL_DEFINE3(julioz_get_memory_usage_stats, int, pid, struct mem_usage_stats 
             }
             
             // Usa totalram_pages como base para oom_score
-            stats.oom_score = oom_badness(task, totalram_pages);
+            stats.oom_score = oom_badness(task, 0);
 
             // Copiar la estructura al espacio de usuario
             if (copy_to_user(&buffer[count], &stats, sizeof(struct mem_usage_stats))) {
@@ -76,7 +76,7 @@ SYSCALL_DEFINE3(julioz_get_memory_usage_stats, int, pid, struct mem_usage_stats 
         }
 
         // Usar totalram_pages como base para oom_score
-        stats.oom_score = oom_badness(task, totalram_pages);
+        stats.oom_score = oom_badness(task, 0);
 
         // Copiar la estructura al espacio de usuario
         if (copy_to_user(buffer, &stats, sizeof(struct mem_usage_stats))) {

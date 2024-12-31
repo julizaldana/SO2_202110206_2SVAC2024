@@ -122,6 +122,10 @@ Para la implementación, se requirió tener bien en cuenta todos los requisitos 
 
 ![alt text](./images/tamallocusage.png)
 
+##### Prueba
+
+Utilizando un archivo de prueba
+
 #### Syscall 2: **get_memory_usage_stats** (Consulta de estadísticas de memoria de procesos)
 
 Se ha construido esta syscall con el objetivo, de poder consultar las estadísticas más relevantes, relacionadas a la asignación de memoria, para poder tener una visualización más cercana sobre el comportamiento y el cambio en las estadísticas al usar el alojador de memoria *tamalloc*. 
