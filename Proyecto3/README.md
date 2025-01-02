@@ -12,17 +12,37 @@ ___
 ### **<div align="center"> Limitador de memoria para procesos en Linux </div>**
 
 Para el Proyecto 3 del Curso de Sistemas Operativos, se realiza la implementación de un limitador de memoria para procesos, el cual asegura limitar los recursos de la computadora y mantenerlos bajos.
-Es así que se ha planteado implementar un sistema de memoria que guarde los registros de los procesos que están limitados en una lista. El sistema consiste en la creación de una lista enlazada, la cual ayudará a realizar el control, que va a a monitorear que procesos deben ser limitados y cual es el valor máximo de memoria para cada uno de ellos.
+Es así que se ha planteado implementar un sistema de memoria que guarde los registros de los procesos que están limitados en una lista dinámica. El sistema consiste en la creación de una lista enlazada, la cual ayudará a realizar el control, que va a a monitorear que procesos deben ser limitados y cual es el valor máximo de memoria para cada uno de ellos. 
 
 ___
 
 ### **<div align="center"> Lista Enlazada </div>**
 
 
-Lista guardará el PID del proceso y la cantidad de memoria maxima que el proceso tiene que ser capaz de pedir de memoria.
-Si el proceso excedió ya la cantidad de memoria que quiero añadirle.
-Si le intento dar un PID que no existe?
-Si quiero quitar el PID de la lista, para deslimitarlo.
+Se ha utilizado una lista enlazada dinámica que guardará el PID del proceso y la cantidad de memoria maxima que el proceso tiene que ser capaz de pedir.
+
+Se ha hecho uso una macro base de Linux, para utilizar una lista enlazada. Obtenido de "<linux/list.h>".
+
+<p align="center">
+<img src="./images/listhead.png" width=350>
+</p>
+
+**Nodo:**
+
+El nodo o elemento que compondrá la lista enlazada se basa en el siguiente struct:
+
+<p align="center">
+<img src="./images/node.png" width=350>
+</p>
+
+**Uso de Mutex**
+
+También se hace uso de algunas funciones de mutex:
+
+<p align="center">
+<img src="./images/mutex.png" width=350>
+</p>
+
 
 ___
 
@@ -39,37 +59,102 @@ D: Delete - *Syscall 4: julioz_remove_memory_limit*
 
 #### Syscall 1: **julioz_add_memory_limit** (Limitación de un proceso)
 
-* Solo para sudo
+<p align="center">
+<img src="./images/sys1.png" width=350>
+</p>
 
-Agregar procesos a una lista.
+
+* Solo para sudo
+* Agregar procesos a una lista.
+* SYSCALL 557
 
 #### Syscall 2: **julioz_get_memory_limits** (Obtención de una lista de procesos limitados)
 
-* Para cualquier usuarios
+<p align="center">
+<img src="./images/sys2.png" width=350>
+</p>
+
+
+
+* Para cualquier usuario
+* Obtiene y entrega todos los procesos de la lista.
+* SYSCALL 558
 
 #### Syscall 3: **julioz_update_memory_limit** (Actualización del límite de un proceso)
 
+<p align="center">
+<img src="./images/sys3.png" width=350>
+</p>
+
+
+
 * Solo para sudo
+* Actualiza la información de los procesos en la lista.
+* SYSCALL 559
 
 #### Syscall 4: **julioz_remove_memory_limit** (Remover el límite de un proceso)
 
+<p align="center">
+<img src="./images/sys4.png" width=350>
+</p>
+
+
 * Solo para sudo
+* Elimina a un proceso de la lista
+* SYSCALL 560
+
+___
+
+
+### **<div align="center"> Intercepción de malloc </div>**
+
+Interceptar las llamadas de asignación de memoria, malloc. Mediante brk y mmap en espacio de usuario es de gran importancia ya que son mecanismos para la asignación de memoria. Se interceptan mediante la función: *"is_request_accepted"*
+
+#### **BRK**
+
+* Se editó en mm/mmap.c
+
+<p align="center">
+<img src="./images/brk.png" width=350>
+</p>
+
+#### **MMAP**
+
+* Se editó en mm/mmap.c
+
+<p align="center">
+<img src="./images/mmap.png" width=350>
+</p>
+
+#### **is_request_accepted()**
+
+Cuando el proceso intenta asignar memoria mediante brk o mmap, el kernel llama a **is_request_accepted** para verificar si la solicitud es válida según las restricciones definidas.
+
+En terminos generales, **malloc** en el espacio de usuario depende de las llamadas del sistema brk y mmap para obtener memoria del kernel. Por lo tanto, Si un proceso intenta reservar más memoria de la permitida mediante malloc, la función fallará porque las llamadas (brk o mmap) serán rechazadas.
+
 ___
 
 ### **<div align="center"> Pruebas </div>**
 
-Si un proceso está limitado, y le quiero agregar más memoria, me tiene que tirar un error.
-Interceptar las llamadas de asignación de memoria, malloc. 
-Poder devolver errores, para tener un control total de los procesos.
-Implementar el funcionamiento, si un proceso ya tiene memoria. Si le queremos agregar.
+Si un proceso está limitado, y le quiero agregar más memoria,tiene que tirar un error. De igual manera se manejan varios tipos de errores. Ya que no se podrá aceptar que un PID sea negativo, o la cantidad de memoria indicada sea negativa etc.
 
-Guardar la lista de procesos limitados.
-Array no se puede.
-Tiene que ser una estructura de datos dinamica. 
-El PID limitalo con 10 MB.
+Se puede ver un ejemplo en donde se solicitan algunos procesos y se van limitando la memoria de los mismos. 
 
+<p align="center">
+<img src="./images/test1.png" width=550>
+</p>
 
+___
 
+## **<div align="center">Organización del Kernel</div>**
+
+Para el proyecto 3 del curso, se ha organizado el kernel de forma que se siguieran los estándares de Linux, en donde se contempló trabajar de la siguiente forma:
+
+<p align="center">
+<img src="./images/org.png" width=550>
+</p>
+
+Siendo crudmemlimit.c, el archivo donde se tiene toda la lógica y todo el código correspondiente a las syscalls y a la función de rastreo de malloc.
 
 ___ 
 
@@ -81,9 +166,9 @@ Se ha realizado una pequeña planificación de acuerdo el tiempo del proyecto, y
 
 | Fecha | Actividad  |
 | - | - |
-| 31 de diciembre | Implementación Lista Enlaza y Syscall 1, 2, 3 y 4 |
-| 1 de enero | Rastreo de Malloc y Pruebas |
-| 2 de enero | Pruebas |
+| 31 de diciembre | Investigación funciones |
+| 1 de enero | Implementación Lista Enlazada, Syscall 1, 2, 3 y 4, Rastreo Malloc |
+| 2 de enero | Pruebas y Documentación|
 
 
 ### **<div align="center">Responsabilidad y Compromiso</div>**
@@ -94,52 +179,37 @@ Se necesita un gran compromiso, para poder implementar, recompilar el kernel con
 
 ### **<div align="center">Errores Comunes y Soluciones</div>**
 
-Al compilar el código de la SYSCALL TAMALLOC, me ha salido el siguiente error:
-
-```bash
-kernel/usac/tamalloc.c: In function ‘__do_sys_julioz_tamalloc’:
-kernel/usac/tamalloc.c:23:12: error: too few arguments to function ‘do_mmap’
-   23 |     addr = do_mmap(NULL, 0, aligned_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, 0);
-      |            ^~~~~~~
-In file included from ./include/linux/ring_buffer.h:5,
-                 from ./include/linux/trace_events.h:6,
-                 from ./include/trace/syscall.h:7,
-                 from ./include/linux/syscalls.h:93,
-                 from kernel/usac/tamalloc.c:2:
-./include/linux/mm.h:3371:22: note: declared here
- 3371 | extern unsigned long do_mmap(struct file *file, unsigned long addr,
-```
+Al compilar el código de las SYSCALLS para el CRUD. Específicamente en el funcionamiento de la syscall de READ. Se obtuvo un problema con una de las flags en *kmalloc*
 
 **Causa:**
 
-La función do_mmap requiere más argumentos de los que se han proporcionado. Sin embargo, después de verificar y realizar pruebas, se llegó a la conclusión que no se debería usar directamente do_mmap en una syscall, porque es una función interna del kernel. 
-
+No se estaba utilizando la flag correcta para kmalloc, en el contexto del proyecto. Así que marcaba un error al poder realizar las pruebas. Ya que existen otras flags como GFP_USER o GFP_ATOMIC, había una confusión.
 
 **Solución:**
 
-Se provee la solución de utilizar en vez de do_mmap, utilizar la función **vm_mmap**, que es una capa de abstracción más sencilla para mapear memoria en syscalls. 
-
+ Usar GFP_KERNEL, ya que es seguro usarla en la mayoría de los casos.
 ```c
-unsigned long vm_mmap(struct file *file, unsigned long addr,
-                      unsigned long len, unsigned long prot,
-                      unsigned long flags, unsigned long pgoff);
-```                  
-
-
-
-
-
+   // Se intenta asignar memoria para el nuevo nodo
+    entry = kmalloc(sizeof(struct memory_limit_entry), GFP_KERNEL);
+    if (!entry) {
+        mutex_unlock(&memory_list_mutex);
+        return -ENOMEM; // Memoria insuficiente
+    }
+```     
 
 
 ### **<div align="center">Reflexión Personal</div>**
 
-En general el segundo proyecto del laboratorio del curso, es muy interesante y constructivo; ya que se puede experimentar bastante en la temática de asignación de memoria de un sistema operativo, en este caso Linux. En este caso estudiar más a fondo el comportamiento de muchas funciones que alojan memoria como lo son calloc, malloc etc, poder implementar una variante, es de gran utilidad, ya que brinda una gran perspectiva de como funciona la repartición de memoria a los procesos de un sistema operativo. De igual manera, poder utilizar de estadísticas del sistema implementando syscalls para verificar el comportamiento del alojador creado *tamalloc*. 
+En general el último proyecto del curso ha sido muy constructivo ya que se ha podido poner en práctica todos los conceptos aprendidos. Como la creación de syscalls/llamadas al sistema en espacio de kernel, para poder brindar funcionalidades hacia el espacio de usuario. Todo con base a la utilización de diferentes structs y macros del kernel de Linux. 
 
-El tiempo ha sido un factor importante y aprovecharlo es de vital importancia, para poder llegar a investigar, implementar funcionalidades, y realizar pruebas en el sistema operativo.
+Por otro lado, la elaboración de los proyectos anteriores han sido de gran ayuda, porque han facilitado mucho más el entendimiento de como se compone y se organiza el kernel de Linux. Haciendo mucho más sencillo la ejecución y el desarrollo de las diferentes funcionalidades que fueron implementadas en este último proyecto.
 
+En fin, poder adentrarse mucho en el kernel de Linux lo puedo ver como una gran oportunidad de aprendizaje, porque se llega a comprender mucho mejor los funcionamientos internos de dicho sistema operativo. Y se puede llegar a aprender muchísimas funcionalidades, como la que se ha visto en estos últimos proyectos, que ha sido centrado más en el manejo interior de la memoria de los procesos. Muy interesante poder entender como es que los procesos se le son asignados memoria, y también es muy útil aprender a como limitar el uso de memoria de cada uno de ellos. Todo con el objetivo de poder siempre conseguir eficiencia en un sistema, para poder optimizar el uso de memoria como el uso de CPU. 
 ___
 
 ### **<div align="center"> E-grafía </div>**
 
-- 
+- https://elixir.bootlin.com/linux/v6.8/source/arch/x86/mm/mmap.c
+- https://man7.org/linux/man-pages/man2/brk.2.html
+- https://stackoverflow.com/questions/20079767/what-is-different-functions-malloc-and-kmalloc
 
